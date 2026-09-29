@@ -1,0 +1,172 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consulta-moodle",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f7597ef3-2827-4194-b306-d62bcb5deec4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        620,
+        240
+      ],
+      "webhookId": "01b48bd7-a029-44eb-abec-3b475aab54f4"
+    },
+    {
+      "parameters": {
+        "url": "http://172.25.96.1:8080/local/moodle_api_bridge.php",
+        "options": {}
+      },
+      "id": "934cd4ac-bf8f-4b95-b5ed-924097bcc014",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        860,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"model\": \"llama3.2\",\n  \"prompt\": \"Eres un asistente de Moodle. SOLO usa estos cursos reales, no inventes ninguno. Los cursos disponibles son: Curso 1: ID=2, Nombre=Ciencias Naturales Saber 11, Descripcion=Preparacion completa para la prueba Saber 11 ICFES. Cubre Biologia, Quimica, Fisica y Ciencias de la Tierra. Curso 2: ID=3, Nombre=Lectura Critica Saber 11, Descripcion=Preparacion completa para la prueba Saber 11 ICFES. Comprension textual, argumentacion, literatura y pensamiento critico. El usuario pregunto: {{ $json.body.consulta }}. Responde en español mencionando SOLO los cursos de la lista anterior que sean relevantes. Incluye el link directo: http://localhost:8080/course/view.php?id=ID_DEL_CURSO\",\n  \"stream\": false\n}",
+        "options": {}
+      },
+      "id": "50352fd3-56ed-46e0-98a4-19e8529e11e2",
+      "name": "HTTP Request1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1080,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ollamaResponse = $input.first().json.response;\nreturn [{ json: { respuesta: ollamaResponse } }];"
+      },
+      "id": "ab068657-5e8f-405e-b37f-458bd8caa1be",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "NODO OLLAMA",
+        "height": 80,
+        "color": 4
+      },
+      "id": "af9571f0-ccd4-412c-aefe-6796d2fcb862",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "content": "NODO MOODLE",
+        "height": 80,
+        "color": 4
+      },
+      "id": "01f373ca-176f-47dd-9efd-068d08ab25c9",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.respuesta }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "3e11e742-2abc-4133-b0b2-bbbebf50e45a",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        240
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3ba11fd0-a93b-4d55-9636-7e82f41dee90",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b1bf02504772ac0a12d30a2edd14e491c58b97d7ee2be016cf3041f054a1fbe4"
+  },
+  "id": "X99KdigRyH0bAlRw",
+  "tags": []
+}

@@ -1,0 +1,56 @@
+services:
+  db:
+    image: mariadb:10.6
+    container_name: moodle_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: moodle
+      MYSQL_USER: moodleuser
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+
+  moodle:
+    build: .
+    container_name: moodle
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - moodle_data:/var/www/html
+      - moodledata:/var/moodledata
+    depends_on:
+      - db
+
+  n8n:
+    image: n8nio/n8n:1.28.0
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+       N8N_BASIC_AUTH_ACTIVE: "true"
+       N8N_BASIC_AUTH_USER: ${N8N_USER}
+       N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+       NODE_FUNCTION_ALLOW_BUILTIN: "*"
+       NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  db_data:
+  moodle_data:
+  moodledata:
+  n8n_data:
+  ollama_data:
