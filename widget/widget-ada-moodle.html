@@ -1109,7 +1109,9 @@
                 /\bbusco\b/.test(n) ||
                 /\bdonde\s+(se\s+)?(puedo\s+)?(ve|veo|vea|estudia|estudio|aprende|aprendo|encuentra|encuentro|trata|hablan)\b/.test(n) ||
                 /\ben que (curso|unidad)\b/.test(n) ||
-                /\b(hay|existe|tienen|ofrecen|ofreces|ofrece)\b.*\b(cursos?|temas?|unidades)\b.*\b(sobre|de|para)\b/.test(n)
+                /\b(hay|existe|existen|tienes|tienen|manejan|dictan|ofrecen|ofreces|ofrece|cuentan con)\b.*\b(cursos?|temas?|unidades|clases?|materiales?)\b.*\b(sobre|de|para|relacionad\w*)\b/.test(n) ||
+                /\bcursos\s+(sobre|de|para|relacionad\w*)\b/.test(n) ||
+                /\b(un|algun)\s+curso\s+(sobre|de|para)\b/.test(n)
             ) return 'explicita';
             if (/\b(te pedi|pedi|me refiero|hablo de|me interesan?|enfocad\w+ en|especificamente|en particular)\b/.test(n)) return 'implicita';
             return null;
