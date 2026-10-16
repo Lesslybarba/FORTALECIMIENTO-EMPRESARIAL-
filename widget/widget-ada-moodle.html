@@ -1069,15 +1069,11 @@
                 .finally(() => clearTimeout(t));
         }
 
-        let resumenPromise = null;
+        // El resumen se consulta en cada pregunta: es una consulta liviana
+        // (< 0,1 s) y así no queda desactualizado si el catálogo cambia.
         function obtenerResumen() {
-            if (!resumenPromise) {
-                resumenPromise = catalogo({ action: 'resumen' }).then((d) => { if (!d) resumenPromise = null; return d; });
-            }
-            return resumenPromise;
+            return catalogo({ action: 'resumen' });
         }
-        // Se precarga apenas existe sesión.
-        obtenerResumen();
 
         function etiquetaPeso(descripcion) {
             const m = (descripcion || '').match(/\d+\s*%\s*(de la prueba|del curso)/i);
