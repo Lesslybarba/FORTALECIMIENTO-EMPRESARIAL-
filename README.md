@@ -24,7 +24,8 @@ Cuatro componentes desacoplados, comunicados por HTTP:
   cursos, unidades y contenidos en JSON, agregando varios endpoints nativos de la
   API de Moodle en una sola respuesta.
 - **n8n** (`n8n/`) — orquesta la conversación: recibe el mensaje por Webhook,
-  recupera el historial, consulta el bridge, arma el prompt y lo envía al modelo.
+  recupera la conversación actual, consulta el bridge, arma el prompt y lo envía al
+  modelo. Incluye además el workflow del historial y el de purga automática.
 - **Ollama** — motor de inferencia local ejecutando Llama 3.1 (8B), sin enviar datos
   a servicios de terceros.
 
@@ -33,13 +34,28 @@ factuales sobre cursos), el sistema responde directamente desde el bridge, evita
 invocar al modelo de lenguaje y reduciendo el tiempo de respuesta a menos de un
 segundo.
 
+## Sesión e historial de conversaciones
+
+- **Chat actual:** se conserva mientras la sesión de Moodle sea la misma; con un nuevo
+  inicio de sesión el chat arranca vacío.
+- **Historial:** las conversaciones anteriores quedan guardadas por usuario y pueden
+  consultarse, retomarse o borrarse desde el panel de historial del widget. Al modelo
+  solo se le entrega el chat actual como contexto.
+- **Identidad:** `bridge/ada_whoami.php` entrega identificadores seudónimos (HMAC) de
+  cuenta y de sesión, solo con sesión autenticada; no expone nombre ni correo.
+- **Retención:** el workflow `Ada - Purga automatica de historial` elimina cada noche
+  (03:00) las conversaciones sin actividad por más de 30 días (`DIAS_RETENCION`).
+- Tratamiento de datos completo (qué se guarda, dónde, finalidad, plazo, acceso,
+  eliminación y medidas de seguridad): `anexos/1_Manual_Tecnico_Arquitectura_Ada.docx`,
+  sección 7.
+
 ## Estructura del repositorio
 
 | Carpeta | Contenido |
 |---|---|
 | `widget/` | Widget del chat, listo para pegar en Moodle (Administración del sitio → Apariencia → HTML adicional) |
-| `bridge/` | Script PHP que expone los datos de cursos |
-| `n8n/` | Workflow exportado (importar y activar en n8n) |
+| `bridge/` | Scripts PHP para Moodle: `moodle_api_bridge_v2.php` (datos de cursos) y `ada_whoami.php` (identidad seudónima de la sesión) |
+| `n8n/` | Los 3 workflows exportados: consulta principal, historial de conversaciones y purga automática |
 | `docker/` | `docker-compose.yml` + `Dockerfile` para levantar Moodle, MariaDB, n8n y Ollama |
 | `anexos/` | Documentación técnica: manual de arquitectura, manual de instalación y migración, informe de pruebas funcionales y evidencias de las pruebas ejecutadas |
 
@@ -51,10 +67,13 @@ segundo.
 4. Copiar `bridge/moodle_api_bridge_v2.php` dentro de `/var/www/html/local/` en el
    contenedor de Moodle, y definir la variable de entorno `MOODLE_WS_TOKEN` con un
    token de Web Services generado desde el propio Moodle.
-5. Importar `n8n/My_workflow.json` en n8n (`http://localhost:5678`) y activarlo.
-   Verificar que el nodo de Ollama tenga `keep_alive` configurado (ver Anexo B,
-   sección 4 — es crítico para el rendimiento).
-6. Pegar el contenido de `widget/widget-ada-moodle.html` en Moodle → Administración
+5. Copiar también `bridge/ada_whoami.php` a `/var/www/html/local/` (no requiere
+   configuración; sin sesión debe responder HTTP 401).
+6. Importar en n8n (`http://localhost:5678`) los tres workflows de `n8n/` y activarlos
+   **con el interruptor "Active" de la interfaz** (activar por línea de comandos no
+   registra el webhook). Verificar que el nodo de Ollama tenga `keep_alive`
+   configurado (ver Anexo B, sección 4 — es crítico para el rendimiento).
+7. Pegar el contenido de `widget/widget-ada-moodle.html` en Moodle → Administración
    del sitio → Apariencia → HTML adicional → "Antes de que se cierre `</BODY>`".
 
 Instrucciones detalladas, solución de problemas conocidos y checklist de migración

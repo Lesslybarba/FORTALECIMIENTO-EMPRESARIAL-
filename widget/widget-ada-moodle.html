@@ -295,6 +295,182 @@
             margin-left: -2px;
         }
 
+        /* ==================== BOTONES DE CABECERA (historial / nueva) ==================== */
+        .ada-header-actions {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 2px;
+        }
+
+        .ada-header-btn {
+            background: transparent;
+            border: none;
+            color: var(--color-text-light);
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .ada-header-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .ada-header-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* ==================== PANEL DE HISTORIAL ==================== */
+        .ada-history {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .ada-chat-panel.show-history .ada-messages,
+        .ada-chat-panel.show-history .ada-input-area {
+            display: none;
+        }
+
+        .ada-chat-panel.show-history .ada-history {
+            display: flex;
+        }
+
+        .ada-history-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px 4px;
+        }
+
+        .ada-history-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--color-text-dark);
+        }
+
+        .ada-history-back {
+            background: transparent;
+            border: none;
+            color: var(--color-primary);
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 4px;
+        }
+
+        .ada-history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ada-history-item {
+            background: var(--color-white);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            border: 2px solid transparent;
+        }
+
+        .ada-history-item:hover {
+            background: #F3F9FA;
+        }
+
+        .ada-history-item.current {
+            border-color: var(--color-accent);
+        }
+
+        .ada-history-item-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ada-history-item-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--color-text-dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ada-history-item-meta {
+            font-size: 12px;
+            color: rgba(36, 66, 94, 0.65);
+        }
+
+        .ada-history-delete {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #C0392B;
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ada-history-delete:hover {
+            background: #FFE5E5;
+        }
+
+        .ada-history-empty {
+            text-align: center;
+            color: rgba(36, 66, 94, 0.75);
+            padding: 30px 20px;
+            font-size: 15px;
+        }
+
+        .ada-history-footer {
+            padding: 10px 12px 12px;
+            border-top: 1px solid rgba(36, 66, 94, 0.1);
+            background: var(--color-white);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ada-history-footer small {
+            color: rgba(36, 66, 94, 0.7);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .ada-history-clear {
+            background: transparent;
+            border: 1px solid #C0392B;
+            color: #C0392B;
+            border-radius: 18px;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .ada-history-clear:hover {
+            background: #FFE5E5;
+        }
+
         /* ==================== MOBILE RESPONSIVE ==================== */
         @media (max-width: 480px) {
             .ada-chat-panel {
@@ -344,6 +520,18 @@
     <!-- ==================== PANEL DE CHAT ==================== -->
     <div class="ada-chat-panel" id="adaChatPanel">
         <div class="ada-chat-header">
+            <div class="ada-header-actions">
+                <button class="ada-header-btn" id="adaHistoryBtn" aria-label="Ver historial de conversaciones" title="Historial">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+                    </svg>
+                </button>
+                <button class="ada-header-btn" id="adaNewBtn" aria-label="Nueva conversación" title="Nueva conversación">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                </button>
+            </div>
             <span class="ada-chat-header-title">Ada</span>
             <button class="ada-chat-close" id="adaCloseBtn" aria-label="Cerrar chat">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -354,6 +542,18 @@
 
         <div class="ada-messages" id="adaMessages">
             <!-- Los mensajes se insertan por JavaScript -->
+        </div>
+
+        <div class="ada-history" id="adaHistory">
+            <div class="ada-history-top">
+                <span class="ada-history-title">Conversaciones anteriores</span>
+                <button class="ada-history-back" id="adaHistoryBack">Volver al chat</button>
+            </div>
+            <div class="ada-history-list" id="adaHistoryList"></div>
+            <div class="ada-history-footer">
+                <button class="ada-history-clear" id="adaHistoryClear">Borrar todo el historial</button>
+                <small>Las conversaciones sin actividad se eliminan automáticamente a los 30 días.</small>
+            </div>
         </div>
 
         <div class="ada-input-area">
@@ -373,23 +573,30 @@
     </div>`;
     document.body.appendChild(adaRoot);
 
-    
-        // ==================== CONFIGURACIÓN ====================
+    // ==================== CONFIGURACIÓN ====================
         const WEBHOOK_URL = 'http://localhost:5678/webhook/consulta-moodle';
+        const HISTORIAL_URL = 'http://localhost:5678/webhook/ada-historial';
+        const WHOAMI_URL = '/local/ada_whoami.php';
 
         // ==================== ESTADO ====================
-        let userId = localStorage.getItem('ada_userId');
-        if (!userId) {
-            userId = 'moodle_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
-            localStorage.setItem('ada_userId', userId);
-        }
-        console.log('[Ada] userId:', userId);
-
+        // Identidad: la entrega Moodle (ada_whoami.php) como hashes seudónimos,
+        // nunca nombre ni correo.
+        //   userId = cuenta del estudiante (estable): separa su historial del de otros.
+        //   sid    = sesión actual de Moodle (cambia en cada inicio de sesión).
+        // Regla de sesión: mientras la sesión sea la misma, el chat actual se
+        // conserva; con una sesión nueva se abre un chat vacío y el anterior
+        // queda en el historial (guardado en el servidor).
+        let userId = null;
+        let sessionSid = null;
+        let convId = null;
         let isThinking = false;
-        // Si el widget responde un saludo al instante (sin pasar por n8n),
-        // esto se le informa al backend en la siguiente consulta real para
-        // que no crea que es la primera vez que habla con este estudiante.
-        let saludoPrevio = null;
+        // Registro pendiente de un intercambio resuelto sin modelo (saludo/factual);
+        // la siguiente consulta al modelo espera a que termine para no perder contexto.
+        let registroPendiente = Promise.resolve();
+
+        function nuevoConvId() {
+            return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+        }
 
         // ==================== ELEMENTOS DEL DOM ====================
         const floatingBtn = document.getElementById('adaFloatingBtn');
@@ -399,54 +606,40 @@
         const input = document.getElementById('adaInput');
         const sendBtn = document.getElementById('adaSendBtn');
 
-        // ==================== HISTORIAL VISIBLE (persiste entre páginas) ====================
-        // El backend ya guarda su propio historial para darle contexto a Ollama,
-        // pero la conversación que se VE en el panel se perdía al recargar la
-        // página o cerrar el chat, porque el widget se reconstruye desde cero
-        // en cada carga. Esto la guarda en localStorage y la restaura al abrir.
-        const HISTORIAL_VISIBLE_KEY = 'ada_historial_visible_' + userId;
-        const MAX_MENSAJES_VISIBLES = 20;
+        // ==================== CHAT ACTUAL (persiste entre páginas mientras dure la sesión) ====================
+        // La conversación que se VE en el panel se guarda en localStorage (clave
+        // por cuenta) junto con el sid de la sesión de Moodle. Si al volver a
+        // cargar la página el sid es el mismo, se restaura; si cambió (el
+        // estudiante cerró sesión y volvió a entrar) se abre un chat vacío.
+        // Cada intercambio también queda guardado en el servidor, que es lo que
+        // alimenta el panel de historial.
+        const MAX_MENSAJES_VISIBLES = 200;
+        let historialVisible = [];
 
-        function cargarHistorialVisible() {
-            try {
-                const raw = localStorage.getItem(HISTORIAL_VISIBLE_KEY);
-                return raw ? JSON.parse(raw) : [];
-            } catch (e) {
-                return [];
-            }
-        }
-
-        let historialVisible = cargarHistorialVisible();
-
-        // Si la conversación restaurada empieza con un saludo que el widget
-        // respondió al instante (sin pasar por el backend), esa señal se
-        // pierde en cada recarga de página porque "saludoPrevio" es una
-        // variable nueva cada vez. Se reconstruye aquí desde lo guardado,
-        // así el aviso al backend sigue funcionando aunque el estudiante
-        // navegue a otra página antes de hacer su primera pregunta real.
-        if (
-            historialVisible.length >= 2 &&
-            historialVisible[0].rol === 'user' &&
-            historialVisible[1].rol === 'bot'
-        ) {
-            saludoPrevio = { consulta: historialVisible[0].texto, respuesta: historialVisible[1].texto };
+        function claveEstado() {
+            return 'ada_estado_' + userId;
         }
 
         function guardarHistorialVisible() {
+            if (!userId) return;
             try {
                 if (historialVisible.length > MAX_MENSAJES_VISIBLES) {
                     historialVisible = historialVisible.slice(-MAX_MENSAJES_VISIBLES);
                 }
-                localStorage.setItem(HISTORIAL_VISIBLE_KEY, JSON.stringify(historialVisible));
+                localStorage.setItem(claveEstado(), JSON.stringify({
+                    sid: sessionSid,
+                    convId: convId,
+                    mensajes: historialVisible
+                }));
             } catch (e) {}
         }
 
-        // Al cerrar sesión ya no queremos conservar la conversación para la
-        // próxima persona que use este navegador.
+        // Al cerrar sesión no se deja copia local del chat para la próxima
+        // persona que use este navegador.
         const logoutLink = document.querySelector('a[href*="/login/logout.php"]');
         if (logoutLink) {
             logoutLink.addEventListener('click', () => {
-                try { localStorage.removeItem(HISTORIAL_VISIBLE_KEY); } catch (e) {}
+                try { if (userId) localStorage.removeItem(claveEstado()); } catch (e) {}
             });
         }
 
@@ -508,14 +701,249 @@
             }
         }
 
-        // Restaurar la conversación guardada, si la hay, apenas el panel existe.
-        historialVisible.forEach((m) => {
-            if (m.rol === 'user') {
-                addUserMessage(m.texto, false);
+        function renderizarConversacion() {
+            messagesContainer.textContent = '';
+            historialVisible.forEach((m) => {
+                if (m.rol === 'user') {
+                    addUserMessage(m.texto, false);
+                } else {
+                    addBotMessage(m.texto, false);
+                }
+            });
+        }
+
+        // ==================== ARRANQUE: IDENTIDAD Y SESIÓN ====================
+        async function iniciarAda() {
+            try {
+                const r = await fetch(WHOAMI_URL, { credentials: 'same-origin', cache: 'no-store' });
+                if (!r.ok) throw new Error('sin sesión (' + r.status + ')');
+                const d = await r.json();
+                if (!d.ok || !/^[a-f0-9]{32}$/.test(d.uid) || !/^[a-f0-9]{32}$/.test(d.sid)) {
+                    throw new Error('identidad inválida');
+                }
+                userId = d.uid;
+                sessionSid = d.sid;
+            } catch (e) {
+                console.warn('[Ada] No se pudo identificar la sesión:', e.message);
+                const root = document.getElementById('ada-widget-root');
+                if (root) root.style.display = 'none';
+                return false;
+            }
+
+            // Limpieza local: (1) restos del formato anterior (id aleatorio por
+            // navegador) y (2) copias del chat de OTRAS cuentas, para que en un
+            // computador compartido no queden datos de quien usó el navegador antes.
+            try {
+                Object.keys(localStorage).forEach((k) => {
+                    const formatoAnterior = (k === 'ada_userId' || k.indexOf('ada_historial_visible_') === 0);
+                    const otraCuenta = (k.indexOf('ada_estado_') === 0 && k !== claveEstado());
+                    if (formatoAnterior || otraCuenta) {
+                        localStorage.removeItem(k);
+                    }
+                });
+            } catch (e) {}
+
+            let estado = null;
+            try { estado = JSON.parse(localStorage.getItem(claveEstado()) || 'null'); } catch (e) {}
+
+            if (estado && estado.sid === sessionSid && estado.convId && Array.isArray(estado.mensajes)) {
+                convId = estado.convId;
+                historialVisible = estado.mensajes;
             } else {
-                addBotMessage(m.texto, false);
+                // Sesión nueva (o sin estado): chat vacío. El anterior ya está
+                // guardado en el servidor y aparece en el historial.
+                convId = nuevoConvId();
+                historialVisible = [];
+            }
+            guardarHistorialVisible();
+            renderizarConversacion();
+            return true;
+        }
+        const identidadLista = iniciarAda();
+
+        // ==================== HISTORIAL DE CONVERSACIONES ====================
+        const historyBtn = document.getElementById('adaHistoryBtn');
+        const newBtn = document.getElementById('adaNewBtn');
+        const historyBack = document.getElementById('adaHistoryBack');
+        const historyList = document.getElementById('adaHistoryList');
+        const historyClear = document.getElementById('adaHistoryClear');
+
+        function llamarHistorial(payload) {
+            return fetch(HISTORIAL_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.assign({ uid: userId }, payload))
+            }).then((r) => {
+                if (!r.ok) throw new Error('Error de servidor: ' + r.status);
+                return r.json();
+            });
+        }
+
+        function registrarIntercambio(consulta, respuesta) {
+            return llamarHistorial({
+                accion: 'registrar',
+                convId: convId,
+                mensajes: [
+                    { rol: 'user', texto: consulta },
+                    { rol: 'assistant', texto: respuesta }
+                ]
+            }).catch((e) => console.warn('[Ada] No se pudo registrar el intercambio:', e));
+        }
+
+        function nuevaConversacion() {
+            if (isThinking) return;
+            convId = nuevoConvId();
+            historialVisible = [];
+            guardarHistorialVisible();
+            renderizarConversacion();
+            cerrarHistorial();
+            input.focus();
+        }
+
+        function cerrarHistorial() {
+            chatPanel.classList.remove('show-history');
+        }
+
+        function mostrarTextoEnHistorial(texto, clase) {
+            historyList.textContent = '';
+            const p = document.createElement('div');
+            p.className = clase || 'ada-history-empty';
+            p.textContent = texto;
+            historyList.appendChild(p);
+        }
+
+        function formatearFecha(iso) {
+            try {
+                return new Date(iso).toLocaleString('es-CO', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function dibujarLista(conversaciones) {
+            historyList.textContent = '';
+            if (!conversaciones.length) {
+                mostrarTextoEnHistorial('Aún no tienes conversaciones anteriores.');
+                return;
+            }
+            conversaciones.forEach((c) => {
+                const item = document.createElement('div');
+                item.className = 'ada-history-item' + (c.convId === convId ? ' current' : '');
+
+                const texto = document.createElement('div');
+                texto.className = 'ada-history-item-text';
+                const titulo = document.createElement('div');
+                titulo.className = 'ada-history-item-title';
+                titulo.textContent = c.titulo;
+                const meta = document.createElement('div');
+                meta.className = 'ada-history-item-meta';
+                meta.textContent = formatearFecha(c.actualizada) + ' · ' + c.mensajes + ' mensajes' +
+                    (c.convId === convId ? ' · actual' : '');
+                texto.appendChild(titulo);
+                texto.appendChild(meta);
+
+                const borrar = document.createElement('button');
+                borrar.className = 'ada-history-delete';
+                borrar.setAttribute('aria-label', 'Borrar esta conversación');
+                borrar.title = 'Borrar';
+                borrar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6M14 10v6"/></svg>';
+                borrar.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    borrarConversacion(c.convId);
+                });
+
+                item.appendChild(texto);
+                item.appendChild(borrar);
+                item.addEventListener('click', () => continuarConversacion(c.convId));
+                historyList.appendChild(item);
+            });
+        }
+
+        async function cargarListaHistorial() {
+            mostrarTextoEnHistorial('Cargando…');
+            try {
+                if (!(await identidadLista)) return;
+                await registroPendiente;
+                const d = await llamarHistorial({ accion: 'listar' });
+                if (!d.ok) throw new Error(d.error || 'respuesta inválida');
+                dibujarLista(d.conversaciones);
+            } catch (e) {
+                console.error('[Ada] Historial:', e);
+                mostrarTextoEnHistorial('No se pudo cargar el historial. Intenta de nuevo en un momento.');
+            }
+        }
+
+        function abrirHistorial() {
+            chatPanel.classList.add('show-history');
+            cargarListaHistorial();
+        }
+
+        async function continuarConversacion(id) {
+            if (isThinking) return;
+            try {
+                const d = await llamarHistorial({ accion: 'obtener', convId: id });
+                if (!d.ok) throw new Error(d.error || 'respuesta inválida');
+                convId = id;
+                historialVisible = d.mensajes.map((m) => ({
+                    rol: m.rol === 'user' ? 'user' : 'bot',
+                    texto: m.texto
+                }));
+                guardarHistorialVisible();
+                renderizarConversacion();
+                cerrarHistorial();
+                input.focus();
+            } catch (e) {
+                console.error('[Ada] Continuar conversación:', e);
+                mostrarTextoEnHistorial('No se pudo abrir esa conversación.');
+            }
+        }
+
+        async function borrarConversacion(id) {
+            if (!window.confirm('¿Borrar esta conversación? Esta acción no se puede deshacer.')) return;
+            try {
+                const d = await llamarHistorial({ accion: 'borrar', convId: id });
+                if (!d.ok) throw new Error(d.error || 'respuesta inválida');
+                if (id === convId) {
+                    convId = nuevoConvId();
+                    historialVisible = [];
+                    guardarHistorialVisible();
+                    renderizarConversacion();
+                }
+                cargarListaHistorial();
+            } catch (e) {
+                console.error('[Ada] Borrar conversación:', e);
+                mostrarTextoEnHistorial('No se pudo borrar la conversación.');
+            }
+        }
+
+        async function borrarTodoElHistorial() {
+            if (!window.confirm('¿Borrar TODO tu historial de conversaciones? Esta acción no se puede deshacer.')) return;
+            try {
+                const d = await llamarHistorial({ accion: 'borrar_todo' });
+                if (!d.ok) throw new Error(d.error || 'respuesta inválida');
+                convId = nuevoConvId();
+                historialVisible = [];
+                guardarHistorialVisible();
+                renderizarConversacion();
+                cargarListaHistorial();
+            } catch (e) {
+                console.error('[Ada] Borrar historial:', e);
+                mostrarTextoEnHistorial('No se pudo borrar el historial.');
+            }
+        }
+
+        historyBtn.addEventListener('click', () => {
+            if (chatPanel.classList.contains('show-history')) {
+                cerrarHistorial();
+            } else {
+                abrirHistorial();
             }
         });
+        historyBack.addEventListener('click', cerrarHistorial);
+        newBtn.addEventListener('click', nuevaConversacion);
+        historyClear.addEventListener('click', borrarTodoElHistorial);
 
         function addThinking() {
             const row = document.createElement('div');
@@ -690,6 +1118,11 @@
             const texto = input.value.trim();
             if (!texto || isThinking) return;
 
+            if (!(await identidadLista)) {
+                addErrorMessage('⚠️ No pude identificar tu sesión de Moodle. Recarga la página e intenta de nuevo.');
+                return;
+            }
+
             // Agregar mensaje del usuario a la UI
             addUserMessage(texto);
             input.value = '';
@@ -702,7 +1135,7 @@
 
             if (esSaludoSimple(texto)) {
                 const respuesta = RESPUESTAS_SALUDO[Math.floor(Math.random() * RESPUESTAS_SALUDO.length)];
-                saludoPrevio = { consulta: texto, respuesta: respuesta };
+                registroPendiente = registrarIntercambio(texto, respuesta);
                 setTimeout(() => {
                     removeThinking();
                     addBotMessage(respuesta);
@@ -716,7 +1149,7 @@
 
             const respuestaFactual = await intentarRespuestaFactual(texto);
             if (respuestaFactual !== null) {
-                saludoPrevio = { consulta: texto, respuesta: respuestaFactual };
+                registroPendiente = registrarIntercambio(texto, respuestaFactual);
                 removeThinking();
                 addBotMessage(respuestaFactual);
                 isThinking = false;
@@ -727,6 +1160,9 @@
             }
 
             try {
+                // Si el intercambio anterior se resolvió sin modelo (saludo/factual),
+                // espera a que quede guardado: el modelo lee el chat actual desde el servidor.
+                await registroPendiente;
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {
@@ -734,8 +1170,8 @@
                     },
                     body: JSON.stringify({
                         userId: userId,
-                        consulta: texto,
-                        saludoPrevio: saludoPrevio
+                        convId: convId,
+                        consulta: texto
                     })
                 });
 
@@ -778,7 +1214,6 @@
         // window.addEventListener('load', () => {
         //     addBotMessage('¡Hola! Soy Ada, tu asistente académico. ¿En qué te puedo ayudar hoy?');
         // });
-    
 })();
 </script>
 <!-- ==================== FIN ADA WIDGET ==================== -->

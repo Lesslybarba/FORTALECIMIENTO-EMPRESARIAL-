@@ -1,0 +1,129 @@
+[
+  {
+    "createdAt": "2026-10-16T16:07:11.869Z",
+    "updatedAt": "2026-10-16T16:08:45.000Z",
+    "id": "AdaHistorial00001",
+    "name": "Ada - Historial de conversaciones",
+    "active": true,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "ada-historial",
+          "responseMode": "responseNode",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Headers",
+                  "value": "Content-Type"
+                },
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                },
+                {
+                  "name": "Access-Control-Allow-Methods",
+                  "value": "Content-Type"
+                }
+              ]
+            },
+            "allowedOrigins": "*"
+          }
+        },
+        "id": "a5aa4127-e011-4d72-96cb-c7c4c2865efc",
+        "name": "Webhook Historial",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          300
+        ],
+        "webhookId": "23d1b1b2-c81b-4258-a572-217c13c47553"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================================\n// Nodo: Gestionar Historial\n// Acciones: listar | obtener | registrar | borrar | borrar_todo\n// Cada usuario (uid = hash de su cuenta de Moodle) tiene su propia\n// carpeta; una conversacion = un archivo JSON.\n// ============================================================\n\nconst fs = require('fs');\nconst path = require('path');\n\nconst RAIZ = '/home/node/.n8n/historial';\nconst MAX_MENSAJES = 200;\nconst MAX_TEXTO = 4000;\n\nconst body = $input.first().json.body || {};\nconst accion = String(body.accion || '');\nconst uid = String(body.uid || '');\nconst convId = String(body.convId || '');\n\nconst uidOk = /^[a-f0-9]{32}$/.test(uid);\nconst convOk = /^c_[a-z0-9_]{6,60}$/.test(convId);\nif (!uidOk) return [{ json: { ok: false, error: 'uid_invalido' } }];\n\nconst dir = path.join(RAIZ, uid);\nconst leer = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (e) { return null; } };\n\nif (accion === 'listar') {\n  if (!fs.existsSync(dir)) return [{ json: { ok: true, conversaciones: [] } }];\n  const items = fs.readdirSync(dir)\n    .filter(f => f.endsWith('.json'))\n    .map(f => leer(path.join(dir, f)))\n    .filter(c => c && Array.isArray(c.mensajes) && c.mensajes.length > 0)\n    .map(c => ({\n      convId: c.convId,\n      titulo: c.titulo || '(sin titulo)',\n      actualizada: c.updated_at,\n      mensajes: c.mensajes.length\n    }))\n    .sort((a, b) => String(b.actualizada).localeCompare(String(a.actualizada)));\n  return [{ json: { ok: true, conversaciones: items } }];\n}\n\nif (accion === 'obtener') {\n  if (!convOk) return [{ json: { ok: false, error: 'conversacion_invalida' } }];\n  const c = leer(path.join(dir, `${convId}.json`));\n  if (!c) return [{ json: { ok: false, error: 'no_encontrada' } }];\n  return [{ json: {\n    ok: true,\n    convId: c.convId,\n    titulo: c.titulo,\n    mensajes: c.mensajes.map(m => ({ rol: m.rol, texto: m.texto, ts: m.ts }))\n  } }];\n}\n\nif (accion === 'registrar') {\n  // Guarda intercambios resueltos por el widget sin invocar al modelo\n  // (saludos y preguntas factuales), para que aparezcan en el historial.\n  if (!convOk) return [{ json: { ok: false, error: 'conversacion_invalida' } }];\n  const nuevos = Array.isArray(body.mensajes) ? body.mensajes.slice(0, 4) : [];\n  const validos = nuevos.filter(m => m && (m.rol === 'user' || m.rol === 'assistant') && typeof m.texto === 'string');\n  if (validos.length === 0) return [{ json: { ok: false, error: 'sin_mensajes' } }];\n\n  fs.mkdirSync(dir, { recursive: true });\n  const archivo = path.join(dir, `${convId}.json`);\n  const ahora = new Date().toISOString();\n  let c = leer(archivo) || { convId, userId: uid, titulo: '', created_at: ahora, updated_at: ahora, mensajes: [] };\n  validos.forEach(m => c.mensajes.push({ rol: m.rol, texto: m.texto.substring(0, MAX_TEXTO), ts: ahora }));\n  if (c.mensajes.length > MAX_MENSAJES) c.mensajes = c.mensajes.slice(-MAX_MENSAJES);\n  if (!c.titulo) {\n    const primero = c.mensajes.find(m => m.rol === 'user');\n    c.titulo = primero ? String(primero.texto).substring(0, 60) : '';\n  }\n  c.updated_at = ahora;\n  fs.writeFileSync(archivo, JSON.stringify(c, null, 2), 'utf-8');\n  return [{ json: { ok: true } }];\n}\n\nif (accion === 'borrar') {\n  if (!convOk) return [{ json: { ok: false, error: 'conversacion_invalida' } }];\n  const archivo = path.join(dir, `${convId}.json`);\n  if (fs.existsSync(archivo)) fs.unlinkSync(archivo);\n  if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);\n  return [{ json: { ok: true } }];\n}\n\nif (accion === 'borrar_todo') {\n  let borradas = 0;\n  if (fs.existsSync(dir)) {\n    fs.readdirSync(dir).filter(f => f.endsWith('.json')).forEach(f => { fs.unlinkSync(path.join(dir, f)); borradas++; });\n    if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);\n  }\n  return [{ json: { ok: true, borradas } }];\n}\n\nreturn [{ json: { ok: false, error: 'accion_desconocida' } }];\n"
+        },
+        "id": "2439840e-922d-4347-88dd-0a8b703751eb",
+        "name": "Gestionar Historial",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ JSON.stringify($json) }}",
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                },
+                {
+                  "name": "Access-Control-Allow-Methods",
+                  "value": "POST, GET, OPTIONS"
+                },
+                {
+                  "name": "Access-Control-Allow-Headers",
+                  "value": "Content-Type"
+                },
+                {
+                  "name": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "2dc75c6b-18da-4b53-a2ce-c443013267ab",
+        "name": "Responder",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [
+          720,
+          300
+        ]
+      }
+    ],
+    "connections": {
+      "Webhook Historial": {
+        "main": [
+          [
+            {
+              "node": "Gestionar Historial",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gestionar Historial": {
+        "main": [
+          [
+            {
+              "node": "Responder",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": {},
+    "versionId": null,
+    "triggerCount": 1,
+    "tags": []
+  }
+]

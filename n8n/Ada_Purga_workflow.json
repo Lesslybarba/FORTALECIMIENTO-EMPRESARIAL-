@@ -1,0 +1,92 @@
+[
+  {
+    "createdAt": "2026-10-16T16:07:19.001Z",
+    "updatedAt": "2026-10-16T16:08:52.000Z",
+    "id": "AdaPurga00000001",
+    "name": "Ada - Purga automatica de historial",
+    "active": true,
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 3 * * *"
+              }
+            ]
+          }
+        },
+        "id": "b2aa649b-b757-4ead-b767-93a716ed0812",
+        "name": "Cada noche 3:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          240
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "1eded33f-e8bd-4328-8c91-2a232e1f93a5",
+        "name": "Ejecucion manual (pruebas)",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          240,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// ============================================================\n// Nodo: Purgar conversaciones antiguas\n// Elimina los archivos de conversaciones sin actividad (fecha de\n// ultima modificacion) en mas de DIAS_RETENCION dias.\n// Solo toca archivos .json dentro de las carpetas del historial.\n// ============================================================\n\nconst fs = require('fs');\nconst path = require('path');\n\nconst DIAS_RETENCION = 30;\nconst LIMITE = Date.now() - DIAS_RETENCION * 24 * 60 * 60 * 1000;\nconst CARPETAS = [\n  '/home/node/.n8n/historial',        // historial actual (carpeta por usuario)\n  '/home/node/.n8n/conversaciones'    // formato anterior (archivo por navegador)\n];\n\nlet revisados = 0;\nlet eliminados = 0;\n\nfunction purgarArchivo(ruta) {\n  const st = fs.lstatSync(ruta);\n  if (!st.isFile() || !ruta.endsWith('.json')) return;\n  revisados++;\n  if (st.mtimeMs < LIMITE) {\n    fs.unlinkSync(ruta);\n    eliminados++;\n  }\n}\n\nfor (const raiz of CARPETAS) {\n  if (!fs.existsSync(raiz)) continue;\n  for (const nombre of fs.readdirSync(raiz)) {\n    const ruta = path.join(raiz, nombre);\n    const st = fs.lstatSync(ruta);\n    if (st.isDirectory()) {\n      for (const f of fs.readdirSync(ruta)) purgarArchivo(path.join(ruta, f));\n      if (fs.readdirSync(ruta).length === 0) fs.rmdirSync(ruta);\n    } else {\n      purgarArchivo(ruta);\n    }\n  }\n}\n\nreturn [{\n  json: {\n    ejecutado: new Date().toISOString(),\n    dias_retencion: DIAS_RETENCION,\n    revisados: revisados,\n    eliminados: eliminados\n  }\n}];\n"
+        },
+        "id": "9460335a-c527-4dcf-b65c-05a6c320e384",
+        "name": "Purgar conversaciones antiguas",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          500,
+          320
+        ]
+      }
+    ],
+    "connections": {
+      "Cada noche 3:00": {
+        "main": [
+          [
+            {
+              "node": "Purgar conversaciones antiguas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ejecucion manual (pruebas)": {
+        "main": [
+          [
+            {
+              "node": "Purgar conversaciones antiguas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": {
+      "node:Cada noche 3:00": {
+        "recurrencyRules": []
+      }
+    },
+    "meta": null,
+    "pinData": {},
+    "versionId": null,
+    "triggerCount": 1,
+    "tags": []
+  }
+]
