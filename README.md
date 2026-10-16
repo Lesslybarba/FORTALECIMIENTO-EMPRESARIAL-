@@ -34,6 +34,14 @@ factuales sobre cursos), el sistema responde directamente desde el bridge, evita
 invocar al modelo de lenguaje y reduciendo el tiempo de respuesta a menos de un
 segundo.
 
+## Catálogo, búsqueda por tema y enlaces
+
+`ada_catalogo.php` consulta directamente la base de datos de Moodle y devuelve solo lo necesario
+(resumen, búsqueda por tema, detalle de un curso y contexto para el modelo). Ada responde sin
+modelo las preguntas por listado, tema, detalle y enlace, con el enlace clicable de cada curso.
+Con un catálogo de 1.002 cursos el bridge original tardó 86 s por consulta; el endpoint nuevo
+responde en menos de 0,1 s (ver Anexo C, sección 8).
+
 ## Sesión e historial de conversaciones
 
 - **Chat actual:** se conserva mientras la sesión de Moodle sea la misma; con un nuevo
@@ -54,7 +62,8 @@ segundo.
 | Carpeta | Contenido |
 |---|---|
 | `widget/` | Widget del chat, listo para pegar en Moodle (Administración del sitio → Apariencia → HTML adicional) |
-| `bridge/` | Scripts PHP para Moodle: `moodle_api_bridge_v2.php` (datos de cursos) y `ada_whoami.php` (identidad seudónima de la sesión) |
+| `bridge/` | Scripts PHP para Moodle: `ada_catalogo.php` (catálogo con búsqueda en el servidor), `ada_whoami.php` (identidad seudónima de la sesión) y `moodle_api_bridge_v2.php` (bridge original) |
+| `catalogo-prueba/` | Generador del catálogo sintético de ~1.000 cursos para validar la escala, y script para eliminarlo |
 | `n8n/` | Los 3 workflows exportados: consulta principal, historial de conversaciones y purga automática |
 | `docker/` | `docker-compose.yml` + `Dockerfile` para levantar Moodle, MariaDB, n8n y Ollama |
 | `anexos/` | Documentación técnica: manual de arquitectura, manual de instalación y migración, informe de pruebas funcionales y evidencias de las pruebas ejecutadas |
@@ -67,8 +76,8 @@ segundo.
 4. Copiar `bridge/moodle_api_bridge_v2.php` dentro de `/var/www/html/local/` en el
    contenedor de Moodle, y definir la variable de entorno `MOODLE_WS_TOKEN` con un
    token de Web Services generado desde el propio Moodle.
-5. Copiar también `bridge/ada_whoami.php` a `/var/www/html/local/` (no requiere
-   configuración; sin sesión debe responder HTTP 401).
+5. Copiar también `bridge/ada_whoami.php` (sin sesión debe responder HTTP 401) y
+   `bridge/ada_catalogo.php` (responde `?action=resumen`) a `/var/www/html/local/`.
 6. Importar en n8n (`http://localhost:5678`) los tres workflows de `n8n/` y activarlos
    **con el interruptor "Active" de la interfaz** (activar por línea de comandos no
    registra el webhook). Verificar que el nodo de Ollama tenga `keep_alive`

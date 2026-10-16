@@ -489,6 +489,12 @@
             }
         }
 
+        .ada-message-row.bot .ada-bubble a {
+            color: inherit;
+            font-weight: 700;
+            text-decoration: underline;
+        }
+
         /* ==================== ERROR MESSAGE ==================== */
         .ada-error {
             background: #FFE5E5;
@@ -593,6 +599,8 @@
         // Registro pendiente de un intercambio resuelto sin modelo (saludo/factual);
         // la siguiente consulta al modelo espera a que termine para no perder contexto.
         let registroPendiente = Promise.resolve();
+        // Cursos de la última respuesta (para pedidos como "dame el enlace").
+        let foco = [];
 
         function nuevoConvId() {
             return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
@@ -629,6 +637,7 @@
                 localStorage.setItem(claveEstado(), JSON.stringify({
                     sid: sessionSid,
                     convId: convId,
+                    foco: foco,
                     mensajes: historialVisible
                 }));
             } catch (e) {}
@@ -659,6 +668,35 @@
         closeBtn.addEventListener('click', closeChat);
 
         // ==================== AGREGAR MENSAJES A LA UI ====================
+        // Muestra el texto y convierte en enlace clicable solo las direcciones de
+        // cursos de ESTE Moodle (mismo origen); cualquier otra URL queda como texto.
+        function renderTexto(el, texto) {
+            el.textContent = '';
+            const re = /(https?:\/\/[^\s)]+)/g;
+            let last = 0;
+            let m;
+            while ((m = re.exec(texto)) !== null) {
+                el.appendChild(document.createTextNode(texto.slice(last, m.index)));
+                let ok = false;
+                try {
+                    const u = new URL(m[1]);
+                    ok = u.origin === location.origin && u.pathname.indexOf('/course/') === 0;
+                } catch (e) {}
+                if (ok) {
+                    const a = document.createElement('a');
+                    a.href = m[1];
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                    a.textContent = 'Abrir curso';
+                    el.appendChild(a);
+                } else {
+                    el.appendChild(document.createTextNode(m[1]));
+                }
+                last = m.index + m[1].length;
+            }
+            el.appendChild(document.createTextNode(texto.slice(last)));
+        }
+
         function addBotMessage(texto, guardar = true) {
             const row = document.createElement('div');
             row.className = 'ada-message-row bot';
@@ -670,7 +708,7 @@
 
             const bubble = document.createElement('div');
             bubble.className = 'ada-bubble';
-            bubble.textContent = texto;
+            renderTexto(bubble, texto);
 
             row.appendChild(avatar);
             row.appendChild(bubble);
@@ -749,6 +787,7 @@
             if (estado && estado.sid === sessionSid && estado.convId && Array.isArray(estado.mensajes)) {
                 convId = estado.convId;
                 historialVisible = estado.mensajes;
+                foco = Array.isArray(estado.foco) ? estado.foco : [];
             } else {
                 // Sesión nueva (o sin estado): chat vacío. El anterior ya está
                 // guardado en el servidor y aparece en el historial.
@@ -794,6 +833,7 @@
             if (isThinking) return;
             convId = nuevoConvId();
             historialVisible = [];
+            foco = [];
             guardarHistorialVisible();
             renderizarConversacion();
             cerrarHistorial();
@@ -886,6 +926,7 @@
                 const d = await llamarHistorial({ accion: 'obtener', convId: id });
                 if (!d.ok) throw new Error(d.error || 'respuesta inválida');
                 convId = id;
+                foco = [];
                 historialVisible = d.mensajes.map((m) => ({
                     rol: m.rol === 'user' ? 'user' : 'bot',
                     texto: m.texto
@@ -908,6 +949,7 @@
                 if (id === convId) {
                     convId = nuevoConvId();
                     historialVisible = [];
+                    foco = [];
                     guardarHistorialVisible();
                     renderizarConversacion();
                 }
@@ -925,6 +967,7 @@
                 if (!d.ok) throw new Error(d.error || 'respuesta inválida');
                 convId = nuevoConvId();
                 historialVisible = [];
+                foco = [];
                 guardarHistorialVisible();
                 renderizarConversacion();
                 cargarListaHistorial();
@@ -1006,73 +1049,128 @@
             return SALUDOS_SIMPLES.includes(normalizar(texto));
         }
 
-        // ==================== RESPUESTAS FACTUALES (sin pasar por Ollama) ====================
-        // Preguntas puramente de datos ("¿cuáles son los cursos?", "¿cuántas
-        // unidades tiene X y qué contienen?") no necesitan que un modelo de
-        // lenguaje razone nada: los datos ya están completos en Moodle. Esto
-        // consulta el mismo bridge PHP que usa n8n (mismo origen que esta
-        // página, sin problema de CORS) y arma la respuesta directamente.
-        // Cualquier pregunta que no calce claramente con estos patrones sigue
-        // yendo a Ollama como siempre, para no arriesgar una respuesta pobre
-        // en algo que sí necesita interpretación.
-        const BRIDGE_URL = '/local/moodle_api_bridge_v2.php?action=get_courses_full';
-        let datosCursosPromise = null;
+        // ==================== RESPUESTAS RÁPIDAS DESDE EL CATÁLOGO (sin pasar por Ollama) ====================
+        // Preguntas de datos ("¿qué cursos hay?", "¿cuántas unidades tiene X?",
+        // "¿qué cursos hay sobre átomos?", "dame el enlace del curso") no necesitan
+        // que un modelo razone: la respuesta sale de la base de datos de Moodle.
+        // El endpoint ada_catalogo.php filtra en el servidor y devuelve solo lo
+        // necesario (con el enlace de cada curso), por lo que funciona igual con
+        // 2 cursos que con miles. Todo lo que no calce con estos patrones sigue
+        // yendo a Ollama como siempre.
+        const CATALOGO_URL = '/local/ada_catalogo.php';
 
-        function obtenerDatosCursos() {
-            if (!datosCursosPromise) {
-                datosCursosPromise = fetch(BRIDGE_URL)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => (data && data.success && Array.isArray(data.cursos)) ? data : null)
-                    .catch(() => null);
-            }
-            return datosCursosPromise;
+        function catalogo(params) {
+            const ctl = new AbortController();
+            const t = setTimeout(() => ctl.abort(), 5000);
+            return fetch(CATALOGO_URL + '?' + new URLSearchParams(params), { credentials: 'same-origin', cache: 'no-store', signal: ctl.signal })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => (d && d.success ? d : null))
+                .catch(() => null)
+                .finally(() => clearTimeout(t));
         }
-        // Se precarga apenas existe sesión, para que ya esté lista cuando el
-        // estudiante escriba su primera pregunta real.
-        obtenerDatosCursos();
 
-        function extraerPeso(descripcion) {
-            const m = (descripcion || '').match(/(\d+)\s*%/);
-            return m ? parseInt(m[1], 10) : null;
+        let resumenPromise = null;
+        function obtenerResumen() {
+            if (!resumenPromise) {
+                resumenPromise = catalogo({ action: 'resumen' }).then((d) => { if (!d) resumenPromise = null; return d; });
+            }
+            return resumenPromise;
+        }
+        // Se precarga apenas existe sesión.
+        obtenerResumen();
+
+        function etiquetaPeso(descripcion) {
+            const m = (descripcion || '').match(/\d+\s*%\s*(de la prueba|del curso)/i);
+            return m ? m[1].toLowerCase() : 'de la prueba';
         }
 
         function primeraLinea(descripcion) {
             return (descripcion || '').split('\n')[0].trim();
         }
 
-        function buscarCursoEnTexto(textoNormalizado, cursos) {
-            let mejor = null;
-            let mejorPuntaje = 0;
-            cursos.forEach((curso) => {
-                const nombreNorm = normalizar(curso.nombre).replace(/saber ?11/g, '');
-                const palabras = nombreNorm.split(/[^a-z0-9]+/).filter(w => w.length > 3);
-                let puntaje = 0;
-                palabras.forEach((p) => { if (textoNormalizado.includes(p)) puntaje++; });
-                const cortoNorm = normalizar(curso.nombre_corto || '');
-                if (cortoNorm && textoNormalizado.includes(cortoNorm)) puntaje += 2;
-                if (puntaje > mejorPuntaje) {
-                    mejorPuntaje = puntaje;
-                    mejor = curso;
-                }
+        function esPreguntaListaCursos(n) {
+            return /(cuantos cursos|que cursos hay|cuales son los cursos|cursos hay|cursos disponibles|que cursos (tienen|ofrecen|hay))/.test(n);
+        }
+
+        function esPreguntaUnidadesCurso(n) {
+            return /(cuantas unidades|que unidades|unidades tiene|cuales son.*unidades|que contenidos|contenidos tiene|de que trata)/.test(n);
+        }
+
+        function esPedidoEnlace(n) {
+            return /\b(link|enlace|url|direccion del curso|donde (entro|accedo|lo encuentro)|como (entro|accedo|llego)|llevame|abrir (el )?curso|ir al curso|acceso al curso)\b/.test(n);
+        }
+
+        // 'explicita': pide claramente cursos/temas; 'implicita': insiste sobre un
+        // tema de la conversación (solo se responde si hay coincidencias).
+        function tipoBusquedaTema(n) {
+            if (
+                /\b(que|cuales|cuantos)\s+(cursos?|temas?|unidades|materias?)\b.*\b(sobre|de|para|relacionad\w*|trat\w*|habl\w*)\b/.test(n) ||
+                /\b(quiero|quisiera|necesito|deseo|me gustaria|podria|puedo)\s+(aprender|estudiar|ver|repasar|buscar|encontrar|practicar|saber\s+(de|sobre))\b/.test(n) ||
+                /\bbusco\b/.test(n) ||
+                /\bdonde\s+(se\s+)?(puedo\s+)?(ve|veo|vea|estudia|estudio|aprende|aprendo|encuentra|encuentro|trata|hablan)\b/.test(n) ||
+                /\ben que (curso|unidad)\b/.test(n) ||
+                /\b(hay|existe|tienen|ofrecen|ofreces|ofrece)\b.*\b(cursos?|temas?|unidades)\b.*\b(sobre|de|para)\b/.test(n)
+            ) return 'explicita';
+            if (/\b(te pedi|pedi|me refiero|hablo de|me interesan?|enfocad\w+ en|especificamente|en particular)\b/.test(n)) return 'implicita';
+            return null;
+        }
+
+        function guardarFoco(cursos) {
+            foco = (cursos || []).slice(0, 5).map((c) => ({ id: c.id, nombre: c.nombre, url: c.url }));
+        }
+
+        function respuestaLista(r) {
+            const n = r.total;
+            if (n <= 6) {
+                const lista = r.ejemplos;
+                guardarFoco(lista);
+                let t = n === 1
+                    ? `Tenemos un curso disponible: ${lista[0].nombre}.`
+                    : `Tenemos ${n} cursos disponibles: ${lista.map((c) => c.nombre).join(' y ')}.`;
+                t += ' ¿Sobre cuál te gustaría saber más?';
+                t += '\n\nEnlaces:\n' + lista.map((c) => `• ${c.nombre}: ${c.url}`).join('\n');
+                return t;
+            }
+            const cats = r.categorias.slice(0, 8).map((c) => `${c.nombre} (${c.cursos})`).join(', ');
+            return `Tenemos ${n} cursos disponibles, organizados en ${r.categorias.length} categorías: ${cats}${r.categorias.length > 8 ? ', entre otras' : ''}. ` +
+                'Dime un tema o el nombre de un curso (por ejemplo, «cursos sobre fotosíntesis») y te muestro cuáles son, con su enlace.';
+        }
+
+        function respuestaTema(d) {
+            const cs = d.cursos;
+            const n = d.total_coincidencias;
+            guardarFoco(cs);
+            if (n === 1) {
+                const c = cs[0];
+                const u = c.unidades.length
+                    ? ', en ' + c.unidades.map((x) => x.nombre + (x.peso !== null ? ` (${x.peso}%)` : '')).join(' y ')
+                    : '';
+                return `Encontré un curso sobre ese tema: ${c.nombre}${u}.\n\nEnlace: ${c.url}`;
+            }
+            let t = `Encontré ${n} cursos que tratan ese tema. Los más relevantes:\n`;
+            cs.forEach((c, i) => {
+                const u = c.unidades.length ? ` — ${c.unidades[0].nombre}` : '';
+                t += `\n${i + 1}. ${c.nombre}${u}\n   ${c.url}`;
             });
-            return mejorPuntaje > 0 ? mejor : null;
+            if (n > cs.length) {
+                t += `\n\nHay ${n - cs.length} más; si me dices la materia o el nivel afino la búsqueda.`;
+            }
+            return t;
         }
 
-        function esPreguntaListaCursos(textoNormalizado) {
-            return /(cuantos cursos|que cursos hay|cuales son los cursos|cursos hay|cursos disponibles|que cursos (tienen|ofrecen|hay))/.test(textoNormalizado);
+        function respuestaEnlace(cursos) {
+            guardarFoco(cursos);
+            if (cursos.length === 1) {
+                return `Aquí está el enlace del curso ${cursos[0].nombre}:\n${cursos[0].url}`;
+            }
+            return 'Aquí están los enlaces:\n' + cursos.slice(0, 5).map((c) => `• ${c.nombre}: ${c.url}`).join('\n');
         }
 
-        function esPreguntaUnidadesCurso(textoNormalizado) {
-            return /(cuantas unidades|que unidades|unidades tiene|cuales son.*unidades|que contenidos|contenidos tiene|de que trata)/.test(textoNormalizado);
-        }
-
-        function respuestaListaCursos(cursos) {
-            const nombres = cursos.map(c => c.nombre);
-            let texto = cursos.length === 1
-                ? `Tenemos un curso disponible: ${nombres[0]}.`
-                : `Tenemos ${cursos.length} cursos disponibles: ${nombres.join(' y ')}.`;
-            texto += ' ¿Sobre cuál te gustaría saber más?';
-            return texto;
+        function respuestaAmbiguo(cands) {
+            guardarFoco(cands);
+            return 'Hay varios cursos que coinciden con eso:\n' +
+                cands.map((c, i) => `\n${i + 1}. ${c.nombre}\n   ${c.url}`).join('') +
+                '\n\nDime cuál te interesa (por ejemplo, el nivel) y te cuento sus unidades.';
         }
 
         function respuestaUnidadesCurso(curso) {
@@ -1082,33 +1180,77 @@
             }
             let texto = `El curso ${curso.nombre} tiene ${secciones.length} unidad${secciones.length === 1 ? '' : 'es'}:\n\n`;
             secciones.forEach((sec, i) => {
-                const peso = extraerPeso(sec.descripcion);
                 const desc = primeraLinea(sec.descripcion);
                 texto += `${i + 1}. ${sec.nombre}`;
-                if (peso !== null) texto += ` (${peso}% de la prueba)`;
+                if (sec.peso !== null && sec.peso !== undefined) texto += ` (${sec.peso}% ${etiquetaPeso(sec.descripcion)})`;
                 texto += `: ${desc}\n`;
             });
+            if (curso.url) texto += `\nEnlace del curso: ${curso.url}\n`;
             texto += '\n¿Quieres que profundice en alguna unidad en particular?';
             return texto;
+        }
+
+        // Si la respuesta del modelo menciona un curso (catálogos pequeños),
+        // queda como "curso en foco" para pedidos posteriores de enlace.
+        async function actualizarFocoDesdeTexto(txt) {
+            const r = await obtenerResumen();
+            if (!r || r.total > 6) return;
+            const n = normalizar(txt);
+            const f = r.ejemplos.filter((c) => n.includes(normalizar(c.nombre.split(' — ')[0])));
+            if (f.length) {
+                guardarFoco(f);
+                guardarHistorialVisible();
+            }
         }
 
         // Devuelve el texto de la respuesta si logra resolverla con datos
         // puros, o null si esta pregunta necesita pasar por Ollama.
         async function intentarRespuestaFactual(texto) {
-            const textoNorm = normalizar(texto);
-            const datos = await Promise.race([
-                obtenerDatosCursos(),
-                new Promise((resolve) => setTimeout(() => resolve(null), 2000))
-            ]);
-            if (!datos) return null;
+            const n = normalizar(texto);
 
-            if (esPreguntaListaCursos(textoNorm)) {
-                return respuestaListaCursos(datos.cursos);
+            if (esPedidoEnlace(n)) {
+                const porNombre = await catalogo({ action: 'curso', q: texto });
+                if (porNombre && porNombre.encontrado && !porNombre.ambiguo) return respuestaEnlace([porNombre.curso]);
+                const d = await catalogo({ action: 'buscar', q: texto, limite: 5 });
+                if (d && d.tokens.length && d.total_coincidencias > 0) return respuestaEnlace(d.cursos);
+                if (foco.length) return respuestaEnlace(foco);
+                const r = await obtenerResumen();
+                if (r && r.total <= 6) return respuestaEnlace(r.ejemplos);
+                return '¿De qué curso quieres el enlace? Dime su nombre o el tema (por ejemplo, «curso de fotosíntesis») y te lo muestro.';
             }
 
-            if (esPreguntaUnidadesCurso(textoNorm)) {
-                const curso = buscarCursoEnTexto(textoNorm, datos.cursos);
-                if (curso) return respuestaUnidadesCurso(curso);
+            if (esPreguntaUnidadesCurso(n)) {
+                const d = await catalogo({ action: 'curso', q: texto });
+                if (d && d.encontrado && !d.ambiguo) {
+                    guardarFoco([d.curso]);
+                    return respuestaUnidadesCurso(d.curso);
+                }
+            }
+
+            const tipo = tipoBusquedaTema(n);
+            if (tipo) {
+                const d = await catalogo({ action: 'buscar', q: texto, limite: 5 });
+                if (d && d.tokens.length && d.total_coincidencias > 0) return respuestaTema(d);
+                if (tipo === 'explicita') {
+                    if (d && d.tokens.length) {
+                        return 'No encontré cursos que traten ese tema en el catálogo. Prueba con otras palabras, o pídeme la lista de categorías con «¿qué cursos hay?».';
+                    }
+                    if (esPreguntaListaCursos(n)) {
+                        const r = await obtenerResumen();
+                        if (r) return respuestaLista(r);
+                    }
+                }
+            }
+
+            if (esPreguntaListaCursos(n)) {
+                const r = await obtenerResumen();
+                if (r) return respuestaLista(r);
+                return null;
+            }
+
+            if (esPreguntaUnidadesCurso(n)) {
+                const d = await catalogo({ action: 'curso', q: texto });
+                if (d && d.encontrado && d.ambiguo) return respuestaAmbiguo(d.candidatos);
             }
 
             return null;
@@ -1184,6 +1326,7 @@
                 // La respuesta viene como texto plano (Respond With: Text)
                 const respuestaTexto = await response.text();
                 addBotMessage(respuestaTexto);
+                actualizarFocoDesdeTexto(respuestaTexto);
 
             } catch (error) {
                 console.error('[Ada] Error:', error);
